@@ -1,0 +1,4 @@
+Sitemap: http://nanli-7.github.io/sitemapindex.xml
+
+User-Agent: *
+Host: nanli-7.github.io
