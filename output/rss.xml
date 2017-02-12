@@ -1,0 +1,528 @@
+<?xml version="1.0" encoding="utf-8"?>
+<?xml-stylesheet type="text/xsl" href="assets/xml/rss.xsl" media="all"?><rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel><title>Welcome to Nan's site</title><link>http://nanli-7.github.io/</link><description>This is Nan's site for data science blogging, learning and sharing</description><atom:link href="http://nanli-7.github.io/rss.xml" type="application/rss+xml" rel="self"></atom:link><language>en</language><lastBuildDate>Sun, 12 Feb 2017 16:52:46 GMT</lastBuildDate><generator>Nikola (getnikola.com)</generator><docs>http://blogs.law.harvard.edu/tech/rss</docs><item><title>OpenStreetMap Data Case Study</title><link>http://nanli-7.github.io/posts/OpenStreetMap-Data-Case-Study/</link><dc:creator>Nanli-7</dc:creator><description>&lt;div&gt;&lt;h2&gt;OpenStreetMap Data Case Study&lt;/h2&gt;
+&lt;h3&gt;Map Area&lt;/h3&gt;
+&lt;p&gt;San-Jose, CA, USA &lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;a href="https://mapzen.com/data/metro-extracts/metro/san-jose_california/"&gt;https://mapzen.com/data/metro-extracts/metro/san-jose_california/&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;San Jose is the largest city within the Bay Area and earns the nickname "Capital of Silicon Valley". Many technology
+company headquarters are located in this area. I'm interested in finding unique features of the city map.&lt;/p&gt;
+&lt;h3&gt;Assessing Quality of Map Data&lt;/h3&gt;
+&lt;p&gt;Before analyzing the whole set of the database, I'd like to take a small sample of the datafile to assess the quality of the data. After processing the sample data, I found that the overall quality of dataset is fair, and in order to improve consistency and accuracy, some problematic data needs to be cleaned. Data quality problems are:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;Inconsistent postal codes format(CA 94035, 95014-1657, 95070)&lt;/li&gt;
+&lt;li&gt;Inconsistent street type name, street name abbreviation (Rd, Road; Cir,Circle)&lt;/li&gt;
+&lt;li&gt;Tags in second level of 'way' tags, data from Tiger GPS is divided into different categories for searching usage. (county, name_base, name_type)&lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;        &amp;lt;tag k="name" v="Lafayette Street"/&amp;gt;
+        &amp;lt;tag k="oneway" v="yes"/&amp;gt;
+        &amp;lt;tag k="highway" v="primary"/&amp;gt;
+        &amp;lt;tag k="maxspeed" v="40 mph"/&amp;gt;
+        &amp;lt;tag k="tiger:county" v="Santa Clara, CA"/&amp;gt;
+        &amp;lt;tag k="tiger:name_base" v="Lafayette"/&amp;gt;
+        &amp;lt;tag k="tiger:name_type" v="St"/&amp;gt;
+&lt;/pre&gt;
+
+
+&lt;h3&gt;Data Cleaning&lt;/h3&gt;
+&lt;p&gt;Before outputting the OSM XML data into CSV files, perform the data cleaning first to improve data quality. Data cleaning includes two steps: update postal code and update street name. &lt;/p&gt;
+&lt;h5&gt;Update Postal Code&lt;/h5&gt;
+&lt;p&gt;In the original datafile, postal code format is different, some entries have state abbreviation heading,  many entries have four-digit code extension. We'll standardize the data into five-digit format first.&lt;/p&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;postcode_re = re.compile(r'[0-9]{5}')
+
+def update_postcode(postcode):
+    m = postcode_re.search(postcode)
+    try:
+        postcode = m.group()
+    except:
+        pass
+    return postcode
+&lt;/pre&gt;
+
+
+&lt;h5&gt;Update Street Name&lt;/h5&gt;
+&lt;p&gt;Use regular expression to find street type first, if it is in abbreviation, change it into full street type. For Example: 'Blvd' is updated to 'Boulevard'.&lt;/p&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;street_type_re = re.compile(r'\b\S+\.?$', re.IGNORECASE)
+def update_name(name, mapping):
+    m = street_type_re.search(name)
+    better_name = name
+    if m:
+        if m.group() in mapping.keys():
+            better_street_type = mapping[m.group()]
+            better_name = street_type_re.sub(better_street_type, name)
+    return better_name
+    return name
+&lt;/pre&gt;
+
+
+&lt;p&gt;After clean up the problematic data, the OSM XML file will be parsed into five CSV files follow the schema from schema.py. Then the data will be imported into SQLite3 database. &lt;/p&gt;
+&lt;h3&gt;Statistical Overview of Dataset&lt;/h3&gt;
+&lt;p&gt;This part contains basic statistics about the database, such as file size, number of nodes, ways, etc. &lt;/p&gt;
+&lt;h5&gt;File Sizes&lt;/h5&gt;
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;File Name&lt;/th&gt;
+&lt;th&gt;File Size&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;san-jose_california.osm&lt;/td&gt;
+&lt;td&gt;284.8 MB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;san_jose_california.db&lt;/td&gt;
+&lt;td&gt;153 MB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;nodes.csv&lt;/td&gt;
+&lt;td&gt;107.2 MB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;nodes_tags.csv&lt;/td&gt;
+&lt;td&gt;2.6 MB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;ways.csv&lt;/td&gt;
+&lt;td&gt;10.1 MB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;ways_nodes.csv&lt;/td&gt;
+&lt;td&gt;35.5 MB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;ways_tags.csv&lt;/td&gt;
+&lt;td&gt;21.3 MB&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h5&gt;Number of Nodes&lt;/h5&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;sqlite&amp;gt; SELECT COUNT(*) FROM nodes;
+&lt;/pre&gt;
+
+
+&lt;p&gt;1285767&lt;/p&gt;
+&lt;h5&gt;Number of Ways&lt;/h5&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;sqlite&amp;gt; SELECT COUNT(*) FROM ways;
+&lt;/pre&gt;
+
+
+&lt;p&gt;171036&lt;/p&gt;
+&lt;h5&gt;Number of Unique Users&lt;/h5&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;SELECT COUNT(DISTINCT(e.uid))          
+FROM (SELECT uid FROM nodes 
+      UNION ALL 
+      SELECT uid FROM ways) e;
+&lt;/pre&gt;
+
+
+&lt;p&gt;1245&lt;/p&gt;
+&lt;h5&gt;Number of Shops&lt;/h5&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;SELECT COUNT(*) as count 
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags
+WHERE tags.key = 'shop';
+&lt;/pre&gt;
+
+
+&lt;p&gt;1908&lt;/p&gt;
+&lt;h5&gt;Top 10 Types of Shops&lt;/h5&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;SELECT tags.value, COUNT(*) as count 
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags
+WHERE tags.key = 'shop'
+GROUP BY tags.value
+ORDER BY count DESC
+LIMIT 10;
+&lt;/pre&gt;
+
+
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Type of Shop&lt;/th&gt;
+&lt;th&gt;Count&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;car_repair&lt;/td&gt;
+&lt;td&gt;169&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;supermarket&lt;/td&gt;
+&lt;td&gt;147&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;convenience&lt;/td&gt;
+&lt;td&gt;139&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;beauty&lt;/td&gt;
+&lt;td&gt;113&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;hairdresser&lt;/td&gt;
+&lt;td&gt;110&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;clothes&lt;/td&gt;
+&lt;td&gt;105&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;car&lt;/td&gt;
+&lt;td&gt;46&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;bakery&lt;/td&gt;
+&lt;td&gt;41&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;alcohol&lt;/td&gt;
+&lt;td&gt;39&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;department_store&lt;/td&gt;
+&lt;td&gt;39&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3&gt;City Map Exploration&lt;/h3&gt;
+&lt;p&gt;Some interesting findings have been discovered in this section. &lt;/p&gt;
+&lt;h5&gt;Top 10 Cities by Count&lt;/h5&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;SELECT tags.value, COUNT(*) as count 
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags
+WHERE tags.key = 'city'
+GROUP BY tags.value
+ORDER BY count DESC
+LIMIT 10;
+&lt;/pre&gt;
+
+
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;City&lt;/th&gt;
+&lt;th&gt;Count&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;Sunnyvale&lt;/td&gt;
+&lt;td&gt;3396&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;San Jose&lt;/td&gt;
+&lt;td&gt;733&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Morgan Hill&lt;/td&gt;
+&lt;td&gt;373&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Santa Clara&lt;/td&gt;
+&lt;td&gt;301&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Saratoga&lt;/td&gt;
+&lt;td&gt;231&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;San José&lt;/td&gt;
+&lt;td&gt;115&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Milpitas&lt;/td&gt;
+&lt;td&gt;94&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Cupertino&lt;/td&gt;
+&lt;td&gt;56&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Los Gatos&lt;/td&gt;
+&lt;td&gt;49&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;Campbell&lt;/td&gt;
+&lt;td&gt;47&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h5&gt;Top 10 Postal Code Area by Count&lt;/h5&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;SELECT tags.value, COUNT(*) as count 
+FROM (SELECT * FROM nodes_tags 
+      UNION ALL 
+      SELECT * FROM ways_tags) tags
+WHERE tags.key='postcode'
+GROUP BY tags.value
+ORDER BY count DESC
+LIMIT 10;
+&lt;/pre&gt;
+
+
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Postal Code&lt;/th&gt;
+&lt;th&gt;Count&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;95014&lt;/td&gt;
+&lt;td&gt;9920&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;95037&lt;/td&gt;
+&lt;td&gt;386&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;95070&lt;/td&gt;
+&lt;td&gt;236&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;94087&lt;/td&gt;
+&lt;td&gt;211&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;94086&lt;/td&gt;
+&lt;td&gt;201&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;95051&lt;/td&gt;
+&lt;td&gt;164&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;95054&lt;/td&gt;
+&lt;td&gt;98&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;95125&lt;/td&gt;
+&lt;td&gt;92&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;95127&lt;/td&gt;
+&lt;td&gt;90&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;95035&lt;/td&gt;
+&lt;td&gt;89&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;p&gt;Postal code 95014 refers to city of Cupertino, but if we count the number of city appeared in tags, city of Cupertino has been tagged for only 56 times. Similarly, for city of sunnyvale, postal code ranges from 94085 to 94089, while under tag of city the appearance number is 3396. This is due to the incompleteness of data. &lt;/p&gt;
+&lt;h5&gt;Top 10 Appearing Amenities&lt;/h5&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;SELECT tags.value, COUNT(*) as count 
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags
+WHERE tags.key = 'amenity'
+GROUP BY tags.value
+ORDER BY count DESC
+LIMIT 10;
+&lt;/pre&gt;
+
+
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Amenity&lt;/th&gt;
+&lt;th&gt;Count&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;parking&lt;/td&gt;
+&lt;td&gt;1808&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;restaurant&lt;/td&gt;
+&lt;td&gt;939&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;school&lt;/td&gt;
+&lt;td&gt;537&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;fast_food&lt;/td&gt;
+&lt;td&gt;475&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;place_of_worship&lt;/td&gt;
+&lt;td&gt;343&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;cafe&lt;/td&gt;
+&lt;td&gt;238&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;fuel&lt;/td&gt;
+&lt;td&gt;233&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;bench&lt;/td&gt;
+&lt;td&gt;198&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;toilets&lt;/td&gt;
+&lt;td&gt;183&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;bicycle_parking&lt;/td&gt;
+&lt;td&gt;182&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h4&gt;Popular Fast Food&lt;/h4&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;SELECT tags.value, COUNT(*) as num
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags JOIN 
+      (SELECT DISTINCT(id) FROM nodes_tags 
+      WHERE value='fast_food' UNION ALL 
+      SELECT  DISTINCT(id) FROM ways_tags
+      WHERE value='fast_food') i
+    ON tags.id=i.id
+WHERE tags.key='cuisine'
+GROUP BY tags.value
+ORDER BY num DESC
+LIMIT 10;
+&lt;/pre&gt;
+
+
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Cuisine&lt;/th&gt;
+&lt;th&gt;Count&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;burger&lt;/td&gt;
+&lt;td&gt;85&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;sandwich&lt;/td&gt;
+&lt;td&gt;70&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;mexican&lt;/td&gt;
+&lt;td&gt;43&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;pizza&lt;/td&gt;
+&lt;td&gt;29&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;ice_cream&lt;/td&gt;
+&lt;td&gt;23&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;chicken&lt;/td&gt;
+&lt;td&gt;16&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;vietnamese&lt;/td&gt;
+&lt;td&gt;16&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;chinese&lt;/td&gt;
+&lt;td&gt;12&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;american&lt;/td&gt;
+&lt;td&gt;7&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;indian&lt;/td&gt;
+&lt;td&gt;6&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h4&gt;Popular Cuisines&lt;/h4&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;SELECT tags.value, COUNT(*) as num
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags JOIN 
+      (SELECT DISTINCT(id) FROM nodes_tags 
+      WHERE value='restaurant' UNION ALL 
+      SELECT  DISTINCT(id) FROM ways_tags
+      WHERE value='restaurant') i
+    ON tags.id=i.id
+WHERE tags.key='cuisine'
+GROUP BY tags.value
+ORDER BY num DESC
+LIMIT 10;
+&lt;/pre&gt;
+
+
+&lt;table&gt;
+&lt;thead&gt;
+&lt;tr&gt;
+&lt;th&gt;Cuisine&lt;/th&gt;
+&lt;th&gt;Count&lt;/th&gt;
+&lt;/tr&gt;
+&lt;/thead&gt;
+&lt;tbody&gt;
+&lt;tr&gt;
+&lt;td&gt;mexican&lt;/td&gt;
+&lt;td&gt;82&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;chinese&lt;/td&gt;
+&lt;td&gt;72&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;vietnamese&lt;/td&gt;
+&lt;td&gt;67&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;pizza&lt;/td&gt;
+&lt;td&gt;56&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;japanese&lt;/td&gt;
+&lt;td&gt;41&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;american&lt;/td&gt;
+&lt;td&gt;35&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;italian&lt;/td&gt;
+&lt;td&gt;33&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;indian&lt;/td&gt;
+&lt;td&gt;32&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;thai&lt;/td&gt;
+&lt;td&gt;26&lt;/td&gt;
+&lt;/tr&gt;
+&lt;tr&gt;
+&lt;td&gt;sushi&lt;/td&gt;
+&lt;td&gt;23&lt;/td&gt;
+&lt;/tr&gt;
+&lt;/tbody&gt;
+&lt;/table&gt;
+&lt;h3&gt;Additional Ideas&lt;/h3&gt;
+&lt;ul&gt;
+&lt;li&gt;The above results have revealed the incompleteness of data, for example, some road tags may only have postal code entries, or may only have city data without postal code. So, based on the given postal code data, it is possible to update the street city values. &lt;/li&gt;
+&lt;/ul&gt;
+&lt;pre class="code literal-block"&gt;&lt;span&gt;&lt;/span&gt;Postal Code &amp;amp; City Mappings: 
+
+{ '95014':'Cupertino',
+  '95037':'Morgan Hill',
+  '95070':'Saratoga'
+  ...
+}
+&lt;/pre&gt;
+
+
+&lt;ul&gt;
+&lt;li&gt;Parking is the largest number amenity, we may also further analyze the correlation between number of parking and street type. &lt;/li&gt;
+&lt;/ul&gt;
+&lt;h3&gt;Conclusion&lt;/h3&gt;
+&lt;p&gt;Through analysis of dataset, it is clear that postal code and city data is not consistent, which is due to the incompleteness of the map data. We can update the city tag by its postal code value. And other interesting study topics are: cuisine popularity in different cities, relationship between number of parking place and types of street, etc.&lt;/p&gt;&lt;/div&gt;</description><category>data</category><category>python</category><guid>http://nanli-7.github.io/posts/OpenStreetMap-Data-Case-Study/</guid><pubDate>Sun, 12 Feb 2017 16:48:45 GMT</pubDate></item><item><title>test</title><link>http://nanli-7.github.io/posts/test/</link><dc:creator>Nanli-7</dc:creator><description>&lt;p&gt;Write your post here.&lt;/p&gt;</description><guid>http://nanli-7.github.io/posts/test/</guid><pubDate>Sun, 12 Feb 2017 16:48:45 GMT</pubDate></item></channel></rss>

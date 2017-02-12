@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html prefix="
+og: http://ogp.me/ns#
+article: http://ogp.me/ns/article#
+" lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>OpenStreetMap Data Case Study | Welcome to Nan's site</title>
+<link href="../../assets/css/bitter.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/main.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/rst.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/code.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/ipython.min.css" rel="stylesheet" type="text/css">
+<link href="../../assets/css/nikola_ipython.css" rel="stylesheet" type="text/css">
+<link rel="alternate" type="application/rss+xml" title="RSS" href="../../rss.xml">
+<link rel="canonical" href="http://nanli-7.github.io/posts/OpenStreetMap-Data-Case-Study/">
+<!--[if lt IE 9]><script src="/assets/js/html5.js"></script><![endif]--><meta name="author" content="Nanli-7">
+<meta property="og:site_name" content="Welcome to Nan's site">
+<meta property="og:title" content="OpenStreetMap Data Case Study">
+<meta property="og:url" content="http://nanli-7.github.io/posts/OpenStreetMap-Data-Case-Study/">
+<meta property="og:description" content='OpenStreetMap Data Case Study
+Map Area
+San-Jose, CA, USA 
+
+https://mapzen.com/data/metro-extracts/metro/san-jose_california/
+
+San Jose is the largest city within the Bay Area and earns the nickname "C'>
+<meta property="og:type" content="article">
+<meta property="article:published_time" content="2017-02-12T11:48:45-05:00">
+<meta property="article:tag" content="data">
+<meta property="article:tag" content="python">
+</head>
+<body>
+    <section class="social"><ul>
+<li><a href="../../index.html" title="Home"><i class="icon-home"></i></a></li>
+            <li><a href="../../archive.html" title="Archives"><i class="icon-folder-open-alt"></i></a></li>
+            <li><a href="../../categories/index.html" title="Tags"><i class="icon-tags"></i></a></li>
+            <li><a href="../../rss.xml" title="RSS"><i class="icon-rss"></i></a></li>
+            <li><a href="https://www.linkedin.com/in/nanli7/" title="About me"><i class="icon-user"></i></a></li>
+            <li><a href="https://github.com/nanli-7" title="My Github"><i class="icon-github"></i></a></li>
+
+        </ul></section><section class="page-content"><div class="content" rel="main">
+    <div class="post">
+        <h1 class="p-name entry-title" itemprop="headline name">OpenStreetMap Data Case Study</h1>
+
+        <div class="meta">
+            <div class="authordate">
+                <time class="timeago" datetime="2017-02-12T11:48:45-05:00">2017-02-12 11:48</time>
+            
+                      |  
+        <a href="index.md" id="sourcelink">Source</a>
+
+            </div>
+                    <div itemprop="keywords" class="tags">
+        <ul>
+        Tags : 
+           <li><a class="tag p-category" href="../../categories/data/" rel="tag">data</a></li>
+           <li><a class="tag p-category" href="../../categories/python/" rel="tag">python</a></li>
+        </ul>
+</div>
+
+        </div>
+        <div class="body">
+            <div>
+<h2>OpenStreetMap Data Case Study</h2>
+<h3>Map Area</h3>
+<p>San-Jose, CA, USA </p>
+<ul>
+<li><a href="https://mapzen.com/data/metro-extracts/metro/san-jose_california/">https://mapzen.com/data/metro-extracts/metro/san-jose_california/</a></li>
+</ul>
+<p>San Jose is the largest city within the Bay Area and earns the nickname "Capital of Silicon Valley". Many technology
+company headquarters are located in this area. I'm interested in finding unique features of the city map.</p>
+<h3>Assessing Quality of Map Data</h3>
+<p>Before analyzing the whole set of the database, I'd like to take a small sample of the datafile to assess the quality of the data. After processing the sample data, I found that the overall quality of dataset is fair, and in order to improve consistency and accuracy, some problematic data needs to be cleaned. Data quality problems are:</p>
+<ul>
+<li>Inconsistent postal codes format(CA 94035, 95014-1657, 95070)</li>
+<li>Inconsistent street type name, street name abbreviation (Rd, Road; Cir,Circle)</li>
+<li>Tags in second level of 'way' tags, data from Tiger GPS is divided into different categories for searching usage. (county, name_base, name_type)</li>
+</ul>
+<pre class="code literal-block"><span></span>        &lt;tag k="name" v="Lafayette Street"/&gt;
+        &lt;tag k="oneway" v="yes"/&gt;
+        &lt;tag k="highway" v="primary"/&gt;
+        &lt;tag k="maxspeed" v="40 mph"/&gt;
+        &lt;tag k="tiger:county" v="Santa Clara, CA"/&gt;
+        &lt;tag k="tiger:name_base" v="Lafayette"/&gt;
+        &lt;tag k="tiger:name_type" v="St"/&gt;
+</pre>
+
+
+<h3>Data Cleaning</h3>
+<p>Before outputting the OSM XML data into CSV files, perform the data cleaning first to improve data quality. Data cleaning includes two steps: update postal code and update street name. </p>
+<h5>Update Postal Code</h5>
+<p>In the original datafile, postal code format is different, some entries have state abbreviation heading,  many entries have four-digit code extension. We'll standardize the data into five-digit format first.</p>
+<pre class="code literal-block"><span></span>postcode_re = re.compile(r'[0-9]{5}')
+
+def update_postcode(postcode):
+    m = postcode_re.search(postcode)
+    try:
+        postcode = m.group()
+    except:
+        pass
+    return postcode
+</pre>
+
+
+<h5>Update Street Name</h5>
+<p>Use regular expression to find street type first, if it is in abbreviation, change it into full street type. For Example: 'Blvd' is updated to 'Boulevard'.</p>
+<pre class="code literal-block"><span></span>street_type_re = re.compile(r'\b\S+\.?$', re.IGNORECASE)
+def update_name(name, mapping):
+    m = street_type_re.search(name)
+    better_name = name
+    if m:
+        if m.group() in mapping.keys():
+            better_street_type = mapping[m.group()]
+            better_name = street_type_re.sub(better_street_type, name)
+    return better_name
+    return name
+</pre>
+
+
+<p>After clean up the problematic data, the OSM XML file will be parsed into five CSV files follow the schema from schema.py. Then the data will be imported into SQLite3 database. </p>
+<h3>Statistical Overview of Dataset</h3>
+<p>This part contains basic statistics about the database, such as file size, number of nodes, ways, etc. </p>
+<h5>File Sizes</h5>
+<table>
+<thead><tr>
+<th>File Name</th>
+<th>File Size</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>san-jose_california.osm</td>
+<td>284.8 MB</td>
+</tr>
+<tr>
+<td>san_jose_california.db</td>
+<td>153 MB</td>
+</tr>
+<tr>
+<td>nodes.csv</td>
+<td>107.2 MB</td>
+</tr>
+<tr>
+<td>nodes_tags.csv</td>
+<td>2.6 MB</td>
+</tr>
+<tr>
+<td>ways.csv</td>
+<td>10.1 MB</td>
+</tr>
+<tr>
+<td>ways_nodes.csv</td>
+<td>35.5 MB</td>
+</tr>
+<tr>
+<td>ways_tags.csv</td>
+<td>21.3 MB</td>
+</tr>
+</tbody>
+</table>
+<h5>Number of Nodes</h5>
+<pre class="code literal-block"><span></span>sqlite&gt; SELECT COUNT(*) FROM nodes;
+</pre>
+
+
+<p>1285767</p>
+<h5>Number of Ways</h5>
+<pre class="code literal-block"><span></span>sqlite&gt; SELECT COUNT(*) FROM ways;
+</pre>
+
+
+<p>171036</p>
+<h5>Number of Unique Users</h5>
+<pre class="code literal-block"><span></span>SELECT COUNT(DISTINCT(e.uid))          
+FROM (SELECT uid FROM nodes 
+      UNION ALL 
+      SELECT uid FROM ways) e;
+</pre>
+
+
+<p>1245</p>
+<h5>Number of Shops</h5>
+<pre class="code literal-block"><span></span>SELECT COUNT(*) as count 
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags
+WHERE tags.key = 'shop';
+</pre>
+
+
+<p>1908</p>
+<h5>Top 10 Types of Shops</h5>
+<pre class="code literal-block"><span></span>SELECT tags.value, COUNT(*) as count 
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags
+WHERE tags.key = 'shop'
+GROUP BY tags.value
+ORDER BY count DESC
+LIMIT 10;
+</pre>
+
+
+<table>
+<thead><tr>
+<th>Type of Shop</th>
+<th>Count</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>car_repair</td>
+<td>169</td>
+</tr>
+<tr>
+<td>supermarket</td>
+<td>147</td>
+</tr>
+<tr>
+<td>convenience</td>
+<td>139</td>
+</tr>
+<tr>
+<td>beauty</td>
+<td>113</td>
+</tr>
+<tr>
+<td>hairdresser</td>
+<td>110</td>
+</tr>
+<tr>
+<td>clothes</td>
+<td>105</td>
+</tr>
+<tr>
+<td>car</td>
+<td>46</td>
+</tr>
+<tr>
+<td>bakery</td>
+<td>41</td>
+</tr>
+<tr>
+<td>alcohol</td>
+<td>39</td>
+</tr>
+<tr>
+<td>department_store</td>
+<td>39</td>
+</tr>
+</tbody>
+</table>
+<h3>City Map Exploration</h3>
+<p>Some interesting findings have been discovered in this section. </p>
+<h5>Top 10 Cities by Count</h5>
+<pre class="code literal-block"><span></span>SELECT tags.value, COUNT(*) as count 
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags
+WHERE tags.key = 'city'
+GROUP BY tags.value
+ORDER BY count DESC
+LIMIT 10;
+</pre>
+
+
+<table>
+<thead><tr>
+<th>City</th>
+<th>Count</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>Sunnyvale</td>
+<td>3396</td>
+</tr>
+<tr>
+<td>San Jose</td>
+<td>733</td>
+</tr>
+<tr>
+<td>Morgan Hill</td>
+<td>373</td>
+</tr>
+<tr>
+<td>Santa Clara</td>
+<td>301</td>
+</tr>
+<tr>
+<td>Saratoga</td>
+<td>231</td>
+</tr>
+<tr>
+<td>San José</td>
+<td>115</td>
+</tr>
+<tr>
+<td>Milpitas</td>
+<td>94</td>
+</tr>
+<tr>
+<td>Cupertino</td>
+<td>56</td>
+</tr>
+<tr>
+<td>Los Gatos</td>
+<td>49</td>
+</tr>
+<tr>
+<td>Campbell</td>
+<td>47</td>
+</tr>
+</tbody>
+</table>
+<h5>Top 10 Postal Code Area by Count</h5>
+<pre class="code literal-block"><span></span>SELECT tags.value, COUNT(*) as count 
+FROM (SELECT * FROM nodes_tags 
+      UNION ALL 
+      SELECT * FROM ways_tags) tags
+WHERE tags.key='postcode'
+GROUP BY tags.value
+ORDER BY count DESC
+LIMIT 10;
+</pre>
+
+
+<table>
+<thead><tr>
+<th>Postal Code</th>
+<th>Count</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>95014</td>
+<td>9920</td>
+</tr>
+<tr>
+<td>95037</td>
+<td>386</td>
+</tr>
+<tr>
+<td>95070</td>
+<td>236</td>
+</tr>
+<tr>
+<td>94087</td>
+<td>211</td>
+</tr>
+<tr>
+<td>94086</td>
+<td>201</td>
+</tr>
+<tr>
+<td>95051</td>
+<td>164</td>
+</tr>
+<tr>
+<td>95054</td>
+<td>98</td>
+</tr>
+<tr>
+<td>95125</td>
+<td>92</td>
+</tr>
+<tr>
+<td>95127</td>
+<td>90</td>
+</tr>
+<tr>
+<td>95035</td>
+<td>89</td>
+</tr>
+</tbody>
+</table>
+<p>Postal code 95014 refers to city of Cupertino, but if we count the number of city appeared in tags, city of Cupertino has been tagged for only 56 times. Similarly, for city of sunnyvale, postal code ranges from 94085 to 94089, while under tag of city the appearance number is 3396. This is due to the incompleteness of data. </p>
+<h5>Top 10 Appearing Amenities</h5>
+<pre class="code literal-block"><span></span>SELECT tags.value, COUNT(*) as count 
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags
+WHERE tags.key = 'amenity'
+GROUP BY tags.value
+ORDER BY count DESC
+LIMIT 10;
+</pre>
+
+
+<table>
+<thead><tr>
+<th>Amenity</th>
+<th>Count</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>parking</td>
+<td>1808</td>
+</tr>
+<tr>
+<td>restaurant</td>
+<td>939</td>
+</tr>
+<tr>
+<td>school</td>
+<td>537</td>
+</tr>
+<tr>
+<td>fast_food</td>
+<td>475</td>
+</tr>
+<tr>
+<td>place_of_worship</td>
+<td>343</td>
+</tr>
+<tr>
+<td>cafe</td>
+<td>238</td>
+</tr>
+<tr>
+<td>fuel</td>
+<td>233</td>
+</tr>
+<tr>
+<td>bench</td>
+<td>198</td>
+</tr>
+<tr>
+<td>toilets</td>
+<td>183</td>
+</tr>
+<tr>
+<td>bicycle_parking</td>
+<td>182</td>
+</tr>
+</tbody>
+</table>
+<h4>Popular Fast Food</h4>
+<pre class="code literal-block"><span></span>SELECT tags.value, COUNT(*) as num
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags JOIN 
+      (SELECT DISTINCT(id) FROM nodes_tags 
+      WHERE value='fast_food' UNION ALL 
+      SELECT  DISTINCT(id) FROM ways_tags
+      WHERE value='fast_food') i
+    ON tags.id=i.id
+WHERE tags.key='cuisine'
+GROUP BY tags.value
+ORDER BY num DESC
+LIMIT 10;
+</pre>
+
+
+<table>
+<thead><tr>
+<th>Cuisine</th>
+<th>Count</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>burger</td>
+<td>85</td>
+</tr>
+<tr>
+<td>sandwich</td>
+<td>70</td>
+</tr>
+<tr>
+<td>mexican</td>
+<td>43</td>
+</tr>
+<tr>
+<td>pizza</td>
+<td>29</td>
+</tr>
+<tr>
+<td>ice_cream</td>
+<td>23</td>
+</tr>
+<tr>
+<td>chicken</td>
+<td>16</td>
+</tr>
+<tr>
+<td>vietnamese</td>
+<td>16</td>
+</tr>
+<tr>
+<td>chinese</td>
+<td>12</td>
+</tr>
+<tr>
+<td>american</td>
+<td>7</td>
+</tr>
+<tr>
+<td>indian</td>
+<td>6</td>
+</tr>
+</tbody>
+</table>
+<h4>Popular Cuisines</h4>
+<pre class="code literal-block"><span></span>SELECT tags.value, COUNT(*) as num
+FROM (SELECT * FROM nodes_tags UNION ALL 
+      SELECT * FROM ways_tags) tags JOIN 
+      (SELECT DISTINCT(id) FROM nodes_tags 
+      WHERE value='restaurant' UNION ALL 
+      SELECT  DISTINCT(id) FROM ways_tags
+      WHERE value='restaurant') i
+    ON tags.id=i.id
+WHERE tags.key='cuisine'
+GROUP BY tags.value
+ORDER BY num DESC
+LIMIT 10;
+</pre>
+
+
+<table>
+<thead><tr>
+<th>Cuisine</th>
+<th>Count</th>
+</tr></thead>
+<tbody>
+<tr>
+<td>mexican</td>
+<td>82</td>
+</tr>
+<tr>
+<td>chinese</td>
+<td>72</td>
+</tr>
+<tr>
+<td>vietnamese</td>
+<td>67</td>
+</tr>
+<tr>
+<td>pizza</td>
+<td>56</td>
+</tr>
+<tr>
+<td>japanese</td>
+<td>41</td>
+</tr>
+<tr>
+<td>american</td>
+<td>35</td>
+</tr>
+<tr>
+<td>italian</td>
+<td>33</td>
+</tr>
+<tr>
+<td>indian</td>
+<td>32</td>
+</tr>
+<tr>
+<td>thai</td>
+<td>26</td>
+</tr>
+<tr>
+<td>sushi</td>
+<td>23</td>
+</tr>
+</tbody>
+</table>
+<h3>Additional Ideas</h3>
+<ul>
+<li>The above results have revealed the incompleteness of data, for example, some road tags may only have postal code entries, or may only have city data without postal code. So, based on the given postal code data, it is possible to update the street city values. </li>
+</ul>
+<pre class="code literal-block"><span></span>Postal Code &amp; City Mappings: 
+
+{ '95014':'Cupertino',
+  '95037':'Morgan Hill',
+  '95070':'Saratoga'
+  ...
+}
+</pre>
+
+
+<ul>
+<li>Parking is the largest number amenity, we may also further analyze the correlation between number of parking and street type. </li>
+</ul>
+<h3>Conclusion</h3>
+<p>Through analysis of dataset, it is clear that postal code and city data is not consistent, which is due to the incompleteness of the map data. We can update the city tag by its postal code value. And other interesting study topics are: cuisine popularity in different cities, relationship between number of parking place and types of street, etc.</p>
+</div>
+        </div>
+                <ul class="pager hidden-print">
+<li class="previous">
+                <a href="../test/" rel="prev" title="test">Previous post</a>
+            </li>
+        </ul>
+<div id="disqus_thread"></div>
+        <script>
+        var disqus_shortname ="nikolademo",
+            disqus_url="http://nanli-7.github.io/posts/OpenStreetMap-Data-Case-Study/",
+        disqus_title="OpenStreetMap Data Case Study",
+        disqus_identifier="cache/posts/P3_project_report.html",
+        disqus_config = function () {
+            this.language = "en";
+        };
+        (function() {
+            var dsq = document.createElement('script'); dsq.async = true;
+            dsq.src = 'https://' + disqus_shortname + '.disqus.com/embed.js';
+            (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+        })();
+    </script><noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript" rel="nofollow">comments powered by Disqus.</a>
+</noscript>
+    <a href="https://disqus.com" class="dsq-brlink" rel="nofollow">Comments powered by <span class="logo-disqus">Disqus</span></a>
+
+
+    </div>
+                     <footer id="footer"><p>Contents © 2017         <a href="mailto:noreply@thisemail.com">Nanli-7</a> - Powered by         <a href="https://getnikola.com" rel="nofollow">Nikola</a>         </p>
+            
+        </footer>
+</div>
+    </section><script src="../../assets/js/jquery-1.10.2.min.js" type="text/javascript"></script><script src="../../assets/js/jquery.timeago.js" type="text/javascript"></script><script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"> </script><script type="text/x-mathjax-config">
+    MathJax.Hub.Config({tex2jax: {inlineMath: [['$latex ','$'], ['\\(','\\)']]}});
+    </script><script type="text/javascript">
+            $(function(){
+                $('.timeago').timeago();
+            });
+        </script>
+</body>
+</html>
