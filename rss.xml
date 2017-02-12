@@ -1,5 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
-<?xml-stylesheet type="text/xsl" href="assets/xml/rss.xsl" media="all"?><rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel><title>Welcome to Nan's site</title><link>http://nanli-7.github.io/</link><description>This is Nan's site for data science blogging, learning and sharing</description><atom:link href="http://nanli-7.github.io/rss.xml" type="application/rss+xml" rel="self"></atom:link><language>en</language><lastBuildDate>Sun, 12 Feb 2017 16:52:46 GMT</lastBuildDate><generator>Nikola (getnikola.com)</generator><docs>http://blogs.law.harvard.edu/tech/rss</docs><item><title>OpenStreetMap Data Case Study</title><link>http://nanli-7.github.io/posts/OpenStreetMap-Data-Case-Study/</link><dc:creator>Nanli-7</dc:creator><description>&lt;div&gt;&lt;h2&gt;OpenStreetMap Data Case Study&lt;/h2&gt;
+<?xml-stylesheet type="text/xsl" href="assets/xml/rss.xsl" media="all"?><rss xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/"><channel><title>Welcome to Nan's site</title><link>http://nanli-7.github.io/</link><description>This is Nan's site for data science blogging, learning and sharing</description><atom:link href="http://nanli-7.github.io/rss.xml" type="application/rss+xml" rel="self"></atom:link><language>en</language><lastBuildDate>Sun, 12 Feb 2017 17:15:43 GMT</lastBuildDate><generator>Nikola (getnikola.com)</generator><docs>http://blogs.law.harvard.edu/tech/rss</docs><item><title>test my first ipython notebook post</title><link>http://nanli-7.github.io/posts/test-my-first-ipython-notebook-post/</link><dc:creator>Nanli-7</dc:creator><description>&lt;div tabindex="-1" id="notebook" class="border-box-sizing"&gt;
+    &lt;div class="container" id="notebook-container"&gt;
+
+&lt;div class="cell border-box-sizing text_cell rendered"&gt;
+&lt;div class="prompt input_prompt"&gt;
+&lt;/div&gt;
+&lt;div class="inner_cell"&gt;
+&lt;div class="text_cell_render border-box-sizing rendered_html"&gt;
+&lt;p&gt;Write your post here.&lt;/p&gt;
+
+&lt;/div&gt;
+&lt;/div&gt;
+&lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+</description><guid>http://nanli-7.github.io/posts/test-my-first-ipython-notebook-post/</guid><pubDate>Sun, 12 Feb 2017 17:11:11 GMT</pubDate></item><item><title>OpenStreetMap Data Case Study</title><link>http://nanli-7.github.io/posts/OpenStreetMap-Data-Case-Study/</link><dc:creator>Nanli-7</dc:creator><description>&lt;div&gt;&lt;h2&gt;OpenStreetMap Data Case Study&lt;/h2&gt;
 &lt;h3&gt;Map Area&lt;/h3&gt;
 &lt;p&gt;San-Jose, CA, USA &lt;/p&gt;
 &lt;ul&gt;
@@ -525,4 +540,4 @@ LIMIT 10;
 &lt;li&gt;Parking is the largest number amenity, we may also further analyze the correlation between number of parking and street type. &lt;/li&gt;
 &lt;/ul&gt;
 &lt;h3&gt;Conclusion&lt;/h3&gt;
-&lt;p&gt;Through analysis of dataset, it is clear that postal code and city data is not consistent, which is due to the incompleteness of the map data. We can update the city tag by its postal code value. And other interesting study topics are: cuisine popularity in different cities, relationship between number of parking place and types of street, etc.&lt;/p&gt;&lt;/div&gt;</description><category>data</category><category>python</category><guid>http://nanli-7.github.io/posts/OpenStreetMap-Data-Case-Study/</guid><pubDate>Sun, 12 Feb 2017 16:48:45 GMT</pubDate></item><item><title>test</title><link>http://nanli-7.github.io/posts/test/</link><dc:creator>Nanli-7</dc:creator><description>&lt;p&gt;Write your post here.&lt;/p&gt;</description><guid>http://nanli-7.github.io/posts/test/</guid><pubDate>Sun, 12 Feb 2017 16:48:45 GMT</pubDate></item></channel></rss>
+&lt;p&gt;Through analysis of dataset, it is clear that postal code and city data is not consistent, which is due to the incompleteness of the map data. We can update the city tag by its postal code value. And other interesting study topics are: cuisine popularity in different cities, relationship between number of parking place and types of street, etc.&lt;/p&gt;&lt;/div&gt;</description><category>data</category><category>python</category><guid>http://nanli-7.github.io/posts/OpenStreetMap-Data-Case-Study/</guid><pubDate>Sun, 12 Feb 2017 16:48:45 GMT</pubDate></item></channel></rss>
